@@ -17,7 +17,8 @@ struct ContentView: View {
   
   let gridLength: Int
   @State private var grid = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: 2), count: 2)
-
+  @State var hovered: (Int, Int) = (-1, -1)
+  
   init() {
     self.gridLength = 20
     var grid: Array<Array<Cell>> = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: gridLength), count: gridLength)
@@ -42,6 +43,15 @@ struct ContentView: View {
             .font(.system(size: 14))
             .foregroundColor(self.grid[row][column].color)
             .frame(width: 10, height: 10)
+            .scaleEffect(self.hovered == (row, column) ? 2.0 : 1.0)
+            .animation(.default)
+            .onHover { hover in
+              if hover {
+                self.hovered = (row, column)
+              } else {
+                self.hovered = (-1, -1)
+              }
+            }
           }
         }
       }
