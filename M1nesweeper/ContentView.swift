@@ -15,22 +15,30 @@ struct ContentView: View {
     (1, -1), (1, 0), (1, 1)
   ]
   
-  @State private var validRange: Range<Int> = 0..<2
-  @State private var grid: Array<Array<Cell>> = []
+  @State private var grid: Array<Array<Cell>> = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: 2), count: 2)
   @State private var isEditing = false
   @State private var gridLength = 20.0
   @State private var minesCount = 2.0
+  @State private var showingAlert = false
   
   var gl: Int {
     return Int(gridLength)
   }
   
   private func createField() {
+    print(gl)
+    print(self.gridLength)
     var grid: Array<Array<Cell>> = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: gl), count: gl)
     self.initBombs(grid: &grid)
     self.initDigits(grid: &grid)
-    self.validRange = 0..<gl
-    self.grid = grid
+    self.grid.removeAll()
+    for i in grid {
+      var a: [Cell] = []
+      for j in i {
+        a.append(j)
+      }
+      self.grid.append(a)
+    }
   }
   
   var body: some View {
@@ -41,7 +49,7 @@ struct ContentView: View {
           Text("Grid Size \(Int(gridLength))")
           Slider(
             value: $gridLength,
-            in: 4...100,
+            in: 4...50,
             step: 1
           )
         }.padding(10)
@@ -51,7 +59,7 @@ struct ContentView: View {
           Text("Mines count \(Int(minesCount))")
           Slider(
             value: $minesCount,
-            in: 1...300,
+            in: 1...100,
             step: 1
           )
         }.padding(10)
@@ -60,15 +68,15 @@ struct ContentView: View {
         Button(action: {
           self.createField()
         }) {
-          Text("Restart")
+          Text("Start")
         }.padding(10)
       }
       
       Spacer()
-      
-      ForEach(0 ..< self.gl) { row in
+   
+      ForEach(0 ..< self.grid.count, id: \.self) { row in
         HStack {
-          ForEach(0 ..< self.gl) { column in
+          ForEach(0 ..< self.grid.count, id: \.self) { column in
             Button(action: {
               self.grid[row][column].hidden = false
               self.cellTapped(row: row, column: column)
@@ -84,11 +92,17 @@ struct ContentView: View {
           }
         }
       }
+      
       Spacer()
+    }.alert("You lose", isPresented: $showingAlert) {
+      Button("OK", role: .cancel) {
+        self.createField()
+      }
     }
   }
   
   private func initDigits(grid: inout Array<Array<Cell>>) {
+    let validRange = 0..<grid.count
     for i in 0..<self.grid.count {
       for j in 0..<self.grid.count {
         if (grid[i][j].cellType != Cell.CellType.bomb) {
@@ -125,6 +139,7 @@ struct ContentView: View {
     }
     var q: [(Int, Int)] = []
     q.append((row, column))
+    let validRange = 0..<self.grid.count
     while !q.isEmpty {
       let c = q.removeLast()
       self.grid[c.0][c.1].hidden = false
