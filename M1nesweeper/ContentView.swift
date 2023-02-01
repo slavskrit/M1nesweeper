@@ -15,25 +15,62 @@ struct ContentView: View {
     (1, -1), (1, 0), (1, 1)
   ]
   
-  let gridLength: Int
-  @State private var grid = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: 2), count: 2)
-  @State var hovered: (Int, Int) = (-1, -1)
+  @State private var validRange: Range<Int> = 0..<2
+  @State private var grid: Array<Array<Cell>> = []
+  @State private var isEditing = false
+  @State private var gridLength = 20.0
+  @State private var minesCount = 2.0
   
-  init() {
-    self.gridLength = 20
-    var grid: Array<Array<Cell>> = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: gridLength), count: gridLength)
-    self.initBombs(grid: &grid, mines: 8)
+  var gl: Int {
+    return Int(gridLength)
+  }
+  
+  private func createField() {
+    var grid: Array<Array<Cell>> = Array(repeating: Array(repeating: Cell(bombsAround: 0, cellType: Cell.CellType.empty), count: gl), count: gl)
+    self.initBombs(grid: &grid)
     self.initDigits(grid: &grid)
-    
-    self._grid = State(initialValue: grid)
+    self.validRange = 0..<gl
+    self.grid = grid
   }
   
   var body: some View {
-    VStack {
-      ForEach(0 ..< self.gridLength) { row in
+    
+    return VStack {
+      HStack {
+        VStack {
+          Text("Grid Size \(Int(gridLength))")
+          Slider(
+            value: $gridLength,
+            in: 4...100,
+            step: 1
+          )
+        }.padding(10)
+        
+        Spacer()
+        VStack {
+          Text("Mines count \(Int(minesCount))")
+          Slider(
+            value: $minesCount,
+            in: 1...300,
+            step: 1
+          )
+        }.padding(10)
+        
+        Spacer()
+        Button(action: {
+          self.createField()
+        }) {
+          Text("Restart")
+        }.padding(10)
+      }
+      
+      Spacer()
+      
+      ForEach(0 ..< self.gl) { row in
         HStack {
-          ForEach(0 ..< self.gridLength) { column in
+          ForEach(0 ..< self.gl) { column in
             Button(action: {
+              self.grid[row][column].hidden = false
               self.cellTapped(row: row, column: column)
             }) {
               Image(systemName: self.grid[row][column].icon)
@@ -43,25 +80,17 @@ struct ContentView: View {
             .font(.system(size: 14))
             .foregroundColor(self.grid[row][column].color)
             .frame(width: 10, height: 10)
-            .scaleEffect(self.hovered == (row, column) ? 2.0 : 1.0)
             .animation(.default)
-            .onHover { hover in
-              if hover {
-                self.hovered = (row, column)
-              } else {
-                self.hovered = (-1, -1)
-              }
-            }
           }
         }
       }
+      Spacer()
     }
   }
   
   private func initDigits(grid: inout Array<Array<Cell>>) {
-    let validRange = 0..<gridLength
-    for i in 0..<gridLength {
-      for j in 0..<gridLength {
+    for i in 0..<self.grid.count {
+      for j in 0..<self.grid.count {
         if (grid[i][j].cellType != Cell.CellType.bomb) {
           var bombsAround = 0
           for n in neightbors {
@@ -72,26 +101,44 @@ struct ContentView: View {
                 && grid[ii][jj].cellType == Cell.CellType.bomb) {
               bombsAround += 1
             }
+            grid[i][j].bombsAround = bombsAround
+            grid[i][j].cellType = bombsAround == 0 ? Cell.CellType.empty : Cell.CellType.digit
           }
-          grid[i][j].bombsAround = bombsAround
-          grid[i][j].cellType = Cell.CellType.digit
         }
       }
     }
   }
   
-  private func initBombs(grid: inout Array<Array<Cell>>, mines: Int) {
-    for _ in 0..<mines {
-      let randomIndex = Int.random(in: 0..<gridLength*gridLength)
-      let row = randomIndex / gridLength
-      let column = randomIndex % gridLength
+  private func initBombs(grid: inout Array<Array<Cell>>) {
+    for _ in 0..<Int(minesCount) {
+      let randomIndex = Int.random(in: 0..<self.gl*self.gl)
+      let row = randomIndex / self.gl
+      let column = randomIndex % self.gl
       grid[row][column].cellType = Cell.CellType.bomb
     }
   }
   
   private func cellTapped(row: Int, column: Int) {
-    print(self.grid[row][column]);
-//    self.grid[row][column].isMine.toggle()
+    if self.grid[row][column].cellType == Cell.CellType.bomb {
+      print("You lose")
+      // TODO: Reload
+    }
+    var q: [(Int, Int)] = []
+    q.append((row, column))
+    while !q.isEmpty {
+      let c = q.removeLast()
+      self.grid[c.0][c.1].hidden = false
+      if self.grid[c.0][c.1].cellType == Cell.CellType.digit {
+        continue
+      }
+      for d in neightbors {
+        if validRange.contains(c.0 + d.0) && validRange.contains(c.1 + d.1) {
+          if self.grid[c.0 + d.0][c.1 + d.1].hidden {
+            q.append((c.0 + d.0, c.1 + d.1))
+          }
+        }
+      }
+    }
   }
 }
 
@@ -124,13 +171,13 @@ struct Cell {
   
   var icon: String {
     if hidden {
-      return "square.dotted"
+      return "questionmark"
     }
     switch self.cellType {
       case .empty: return "square.dotted"
       case .bomb: return "b.circle.fill"
       case .flagged: return "flag.fill"
-      case .digit: return "\(bombsAround).circle"
+      case .digit: return "\(bombsAround).square"
     }
   }
 }
